@@ -1,3 +1,16 @@
+# OneUI Magisk Mod
+This is a [Magisk app](https://github.com/topjohnwu/Magisk) version which has Samsung's OneUI design by using our [OneUI libraries](https://github.com/OneUIProject/).
+
+## Downloads
+
+[![](https://img.shields.io/badge/Magisk-v25.2-blue)](https://github.com/Yanndroid/Magisk/releases/tag/v25.2)
+[![](https://img.shields.io/badge/Magisk%20Beta-v25.2-blue)](https://github.com/Yanndroid/Magisk/releases/tag/v25.2)
+[![](https://img.shields.io/badge/Magisk-Canary-red)](https://raw.githubusercontent.com/Yanndroid/magisk-files/canary/app-release.apk)
+[![](https://img.shields.io/badge/Magisk-Debug-red)](https://raw.githubusercontent.com/Yanndroid/magisk-files/canary/app-debug.apk)
+
+
+# Original README
+
 ![](docs/images/logo.png)
 
 [![Downloads](https://img.shields.io/badge/dynamic/json?color=green&label=Downloads&query=totalString&url=https%3A%2F%2Fraw.githubusercontent.com%2Ftopjohnwu%2Fmagisk-files%2Fcount%2Fcount.json&cacheSeconds=1800)](https://raw.githubusercontent.com/topjohnwu/magisk-files/count/count.json)
