@@ -51,16 +51,20 @@ static void *unload_first_stage(void *) {
     return nullptr;
 }
 
+#if defined(__LP64__)
+// Use symlink to workaround linker bug on old broken Android
+// https://issuetracker.google.com/issues/36914295
+#define SECOND_STAGE_PATH "/system/bin/app_process"
+#else
+#define SECOND_STAGE_PATH "/system/bin/app_process32"
+#endif
+
 static void second_stage_entry() {
     zygisk_logging();
     ZLOGD("inject 2nd stage\n");
 
     MAGISKTMP = getenv(MAGISKTMP_ENV);
-#if defined(__LP64__)
-    self_handle = dlopen("/system/bin/app_process", RTLD_NOLOAD);
-#else
-    self_handle = dlopen("/system/bin/app_process32", RTLD_NOLOAD);
-#endif
+    self_handle = dlopen(SECOND_STAGE_PATH, RTLD_NOLOAD);
     dlclose(self_handle);
 
     unsetenv(MAGISKTMP_ENV);
@@ -81,12 +85,18 @@ static void first_stage_entry() {
     }
 
     // Load second stage
+    android_dlextinfo info {
+        .flags = ANDROID_DLEXT_FORCE_LOAD
+    };
     setenv(INJECT_ENV_2, "1", 1);
-#if defined(__LP64__)
-    dlopen("/system/bin/app_process", RTLD_LAZY);
-#else
-    dlopen("/system/bin/app_process32", RTLD_LAZY);
-#endif
+    if (android_dlopen_ext(SECOND_STAGE_PATH, RTLD_LAZY, &info) == nullptr) {
+        // Android 5.x doesn't support ANDROID_DLEXT_FORCE_LOAD
+        ZLOGI("ANDROID_DLEXT_FORCE_LOAD is not supported, fallback to dlopen\n");
+        if (dlopen(SECOND_STAGE_PATH, RTLD_LAZY) == nullptr) {
+            ZLOGE("Cannot load the second stage\n");
+            unsetenv(INJECT_ENV_2);
+        }
+    }
 }
 
 [[gnu::constructor]] [[maybe_unused]]
@@ -320,7 +330,11 @@ static void get_process_info(int client, const sock_cred *cred) {
 
     if (should_load_modules(flags)) {
         char buf[256];
-        get_exe(cred->pid, buf, sizeof(buf));
+        if (!get_exe(cred->pid, buf, sizeof(buf))) {
+            LOGW("zygisk: remote process %d probably died, abort\n", cred->pid);
+            send_fd(client, -1);
+            return;
+        }
         vector<int> fds = get_module_fds(str_ends(buf, "64"));
         send_fds(client, fds.data(), fds.size());
     }
@@ -386,8 +400,11 @@ void zygisk_handler(int client, const sock_cred *cred) {
         send_log_pipe(client);
         break;
     case ZygiskRequest::CONNECT_COMPANION:
-        get_exe(cred->pid, buf, sizeof(buf));
-        connect_companion(client, str_ends(buf, "64"));
+        if (get_exe(cred->pid, buf, sizeof(buf))) {
+            connect_companion(client, str_ends(buf, "64"));
+        } else {
+            LOGW("zygisk: remote process %d probably died, abort\n", cred->pid);
+        }
         break;
     case ZygiskRequest::GET_MODDIR:
         get_moddir(client);

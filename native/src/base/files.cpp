@@ -23,19 +23,21 @@ int fd_pathat(int dirfd, const char *name, char *path, size_t size) {
     return 0;
 }
 
-int mkdirs(string path, mode_t mode) {
+int mkdirs(const char *path, mode_t mode) {
+    char buf[4096];
+    strlcpy(buf, path, sizeof(buf));
     errno = 0;
-    for (char *p = path.data() + 1; *p; ++p) {
+    for (char *p = &buf[1]; *p; ++p) {
         if (*p == '/') {
             *p = '\0';
-            if (mkdir(path.data(), mode) == -1) {
+            if (mkdir(buf, mode) == -1) {
                 if (errno != EEXIST)
                     return -1;
             }
             *p = '/';
         }
     }
-    if (mkdir(path.data(), mode) == -1) {
+    if (mkdir(buf, mode) == -1) {
         if (errno != EEXIST)
             return -1;
     }
@@ -438,7 +440,7 @@ void restore_folder(const char *dir, vector<raw_file> &files) {
     for (raw_file &file : files) {
         string path = base + "/" + file.path;
         if (S_ISDIR(file.attr.st.st_mode)) {
-            mkdirs(path, 0);
+            mkdirs(path.data(), 0);
         } else if (S_ISREG(file.attr.st.st_mode)) {
             if (auto fp = xopen_file(path.data(), "we"))
                 fwrite(file.content.data(), 1, file.content.size(), fp.get());
